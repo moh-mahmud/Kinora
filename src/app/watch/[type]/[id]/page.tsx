@@ -15,6 +15,7 @@ import {
   releaseClock,
   releaseYear,
 } from "@/lib/tmdb/client";
+import { rethrowNextError } from "@/lib/rethrow";
 import type { MediaType } from "@/lib/tmdb/types";
 import {
   EMBED_SOURCES,
@@ -201,7 +202,8 @@ async function WatchContent({
         </p>
       </div>
     );
-  } catch {
+  } catch (error) {
+    rethrowNextError(error);
     return (
       <div className="mx-auto max-w-7xl px-4 py-16">
         <ErrorState title="Watch page unavailable" />

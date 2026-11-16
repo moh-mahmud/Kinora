@@ -3,6 +3,7 @@ import Link from "next/link";
 import { BrowseFilters } from "@/components/media/browse-filters";
 import { MediaCard, MediaCardSkeleton } from "@/components/media/media-card";
 import { EmptyState, ErrorState } from "@/components/media/state-blocks";
+import { rethrowNextError } from "@/lib/rethrow";
 import { browseMedia, getGenres } from "@/lib/tmdb/client";
 
 type BrowseSearchParams = Promise<{
@@ -111,7 +112,8 @@ async function BrowseResults({
         )}
       </div>
     );
-  } catch {
+  } catch (error) {
+    rethrowNextError(error);
     return (
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <ErrorState title="Browse unavailable" />

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { connection } from "next/server";
 import { Figtree, Syne } from "next/font/google";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
@@ -33,9 +34,12 @@ function HeaderFallback() {
   );
 }
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
-  const demoMode = isUsingMockData();
+async function HeaderSlot() {
+  await connection();
+  return <SiteHeader demoMode={isUsingMockData()} />;
+}
 
+export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
@@ -43,7 +47,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="flex min-h-full flex-col font-sans">
         <Suspense fallback={<HeaderFallback />}>
-          <SiteHeader demoMode={demoMode} />
+          <HeaderSlot />
         </Suspense>
         <main className="flex-1">{children}</main>
         <SiteFooter />

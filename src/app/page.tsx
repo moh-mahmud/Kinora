@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { Hero } from "@/components/home/hero";
 import { MediaRow, MediaRowSkeleton } from "@/components/home/media-row";
 import { ErrorState } from "@/components/media/state-blocks";
+import { rethrowNextError } from "@/lib/rethrow";
 import { getHomeCatalog } from "@/lib/tmdb/client";
 
 async function HomeContent() {
@@ -67,7 +68,8 @@ async function HomeContent() {
         </div>
       </>
     );
-  } catch {
+  } catch (error) {
+    rethrowNextError(error);
     return (
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <ErrorState

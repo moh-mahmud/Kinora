@@ -1,4 +1,5 @@
 import { connection } from "next/server";
+import { rethrowNextError } from "@/lib/rethrow";
 import {
   MOCK_GENRES,
   getMockSeason,
@@ -50,9 +51,23 @@ export function isReleased(
   return date.slice(0, 10) <= today;
 }
 
+function readEnv(names: string[]) {
+  for (const name of names) {
+    const value = process.env[name]?.trim().replace(/^['"]|['"]$/g, "");
+    if (value) return value;
+  }
+  return undefined;
+}
+
 function getAuth() {
-  const token = process.env.TMDB_READ_ACCESS_TOKEN?.trim();
-  const apiKey = process.env.TMDB_API_KEY?.trim();
+  const token = readEnv([
+    "TMDB_READ_ACCESS_TOKEN",
+    "NEXT_PUBLIC_TMDB_READ_ACCESS_TOKEN",
+  ]);
+  const apiKey = readEnv([
+    "TMDB_API_KEY",
+    "NEXT_PUBLIC_TMDB_API_KEY",
+  ]);
   return { token, apiKey, hasCredentials: Boolean(token || apiKey) };
 }
 
@@ -121,8 +136,8 @@ async function safeList(
   if (!getAuth().hasCredentials) {
     return fallback();
   }
+  const { today } = await releaseClock();
   try {
-    const { today } = await releaseClock();
     const data = await live();
     return {
       ...data,
@@ -130,7 +145,8 @@ async function safeList(
         .map((item) => normalizeSummary(item, fallbackType))
         .filter((item) => isReleased(item, today)),
     };
-  } catch {
+  } catch (error) {
+    rethrowNextError(error);
     return fallback();
   }
 }
@@ -231,7 +247,8 @@ export async function getGenres(): Promise<Genre[]> {
   try {
     const data = await tmdbFetch<{ genres: Genre[] }>("/genre/movie/list");
     return data.genres;
-  } catch {
+  } catch (error) {
+    rethrowNextError(error);
     return MOCK_GENRES;
   }
 }
@@ -335,7 +352,8 @@ export async function browseMedia(params: {
     }
 
     return getTrending(page);
-  } catch {
+  } catch (error) {
+    rethrowNextError(error);
     return mockBrowse({ type, genre, query, page });
   }
 }
@@ -362,7 +380,8 @@ export async function getTvSeason(
         (a, b) => a.episode_number - b.episode_number,
       ),
     };
-  } catch {
+  } catch (error) {
+    rethrowNextError(error);
     return getMockSeason(id, seasonNumber);
   }
 }
@@ -380,7 +399,8 @@ export async function getTitleDetails(
       append_to_response: "credits,similar,videos",
     });
     return normalizeSummary(data, type) as MediaDetails;
-  } catch {
+  } catch (error) {
+    rethrowNextError(error);
     return getMockTitle(type, id);
   }
 }
