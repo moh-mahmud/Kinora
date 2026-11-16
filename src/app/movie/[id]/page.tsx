@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { NotFoundState, ErrorState } from "@/components/media/state-blocks";
 import { TitleDetail } from "@/components/media/title-detail";
-import { displayTitle, getTitleDetails } from "@/lib/tmdb/client";
+import { displayTitle, getTitleDetails, isReleased, releaseClock } from "@/lib/tmdb/client";
 
 type Params = Promise<{ id: string }>;
 
@@ -43,7 +43,8 @@ async function MovieContent({ params }: { params: Params }) {
       );
     }
 
-    return <TitleDetail item={item} type="movie" />;
+    const { today } = await releaseClock();
+    return <TitleDetail item={item} type="movie" released={isReleased(item, today)} />;
   } catch {
     return (
       <div className="mx-auto max-w-7xl px-4 py-16">

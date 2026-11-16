@@ -29,6 +29,35 @@ export interface CastMember {
   order: number;
 }
 
+export interface SeasonSummary {
+  id?: number;
+  name: string;
+  season_number: number;
+  episode_count: number;
+  poster_path: string | null;
+  overview?: string;
+}
+
+export interface EpisodeSummary {
+  id: number;
+  name: string;
+  overview: string;
+  episode_number: number;
+  season_number: number;
+  still_path: string | null;
+  runtime?: number | null;
+  vote_average?: number;
+  air_date?: string | null;
+}
+
+export interface SeasonDetails {
+  id?: number;
+  name: string;
+  season_number: number;
+  overview?: string;
+  episodes: EpisodeSummary[];
+}
+
 export interface MediaDetails extends MediaSummary {
   genres: Genre[];
   runtime?: number | null;
@@ -37,6 +66,7 @@ export interface MediaDetails extends MediaSummary {
   tagline?: string;
   number_of_seasons?: number;
   number_of_episodes?: number;
+  seasons?: SeasonSummary[];
   credits?: {
     cast: CastMember[];
   };

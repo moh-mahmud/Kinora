@@ -2,9 +2,10 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { NotFoundState, ErrorState } from "@/components/media/state-blocks";
 import { TitleDetail } from "@/components/media/title-detail";
-import { displayTitle, getTitleDetails } from "@/lib/tmdb/client";
+import { displayTitle, getTitleDetails, getTvSeason, isReleased, releaseClock } from "@/lib/tmdb/client";
 
 type Params = Promise<{ id: string }>;
+type SearchParams = Promise<{ season?: string }>;
 
 export async function generateMetadata({
   params,
@@ -22,9 +23,15 @@ export async function generateMetadata({
   };
 }
 
-async function TvContent({ params }: { params: Params }) {
+async function TvContent({
+  params,
+  searchParams,
+}: {
+  params: Params;
+  searchParams: SearchParams;
+}) {
   try {
-    const { id } = await params;
+    const [{ id }, query] = await Promise.all([params, searchParams]);
     const numericId = Number(id);
     if (!Number.isFinite(numericId)) {
       return (
@@ -43,7 +50,20 @@ async function TvContent({ params }: { params: Params }) {
       );
     }
 
-    return <TitleDetail item={item} type="tv" />;
+    const requested = query.season ? Number(query.season) : 1;
+    const seasonNumber =
+      Number.isFinite(requested) && requested >= 0 ? requested : 1;
+    const { today } = await releaseClock();
+    const season = await getTvSeason(numericId, seasonNumber);
+
+    return (
+      <TitleDetail
+        item={item}
+        type="tv"
+        season={season}
+        released={isReleased(item, today)}
+      />
+    );
   } catch {
     return (
       <div className="mx-auto max-w-7xl px-4 py-16">
@@ -53,7 +73,13 @@ async function TvContent({ params }: { params: Params }) {
   }
 }
 
-export default function TvPage({ params }: { params: Params }) {
+export default function TvPage({
+  params,
+  searchParams,
+}: {
+  params: Params;
+  searchParams: SearchParams;
+}) {
   return (
     <Suspense
       fallback={
@@ -62,7 +88,7 @@ export default function TvPage({ params }: { params: Params }) {
         </div>
       }
     >
-      <TvContent params={params} />
+      <TvContent params={params} searchParams={searchParams} />
     </Suspense>
   );
 }

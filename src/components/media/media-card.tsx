@@ -23,6 +23,8 @@ export function MediaCard({
   const poster = posterUrl(item.poster_path, "w342");
   const year = releaseYear(item);
   const title = displayTitle(item);
+  const rating = Number(item.vote_average);
+  const ratingLabel = Number.isFinite(rating) ? rating.toFixed(1) : "—";
 
   return (
     <Link
@@ -52,7 +54,7 @@ export function MediaCard({
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2.5 pt-8 opacity-0 transition group-hover:opacity-100">
           <div className="flex items-center gap-1 text-xs text-[#f4efe6]">
             <Star className="size-3 fill-[var(--amber)] text-[var(--amber)]" />
-            {item.vote_average.toFixed(1)}
+            {ratingLabel}
           </div>
         </div>
       </div>

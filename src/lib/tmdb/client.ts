@@ -1,5 +1,7 @@
+import { connection } from "next/server";
 import {
   MOCK_GENRES,
+  getMockSeason,
   getMockTitle,
   mockBrowse,
   mockDiscoverByGenre,
@@ -17,9 +19,36 @@ import type {
   MediaSummary,
   MediaType,
   PaginatedResponse,
+  SeasonDetails,
 } from "./types";
 
 const TMDB_API_BASE = "https://api.themoviedb.org/3";
+
+function formatISODate(date: Date) {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+export async function releaseClock() {
+  await connection();
+  const today = new Date();
+  const cutoff = new Date(today);
+  cutoff.setDate(cutoff.getDate() - 180);
+  return {
+    today: formatISODate(today),
+    catalogThrough: formatISODate(cutoff),
+  };
+}
+
+export function isReleased(
+  item: Pick<MediaSummary, "release_date" | "first_air_date">,
+  today: string,
+) {
+  const date = item.release_date || item.first_air_date;
+  if (!date) return true;
+  return date.slice(0, 10) <= today;
+}
 
 function getAuth() {
   const token = process.env.TMDB_READ_ACCESS_TOKEN?.trim();
@@ -77,6 +106,9 @@ function normalizeSummary(
   return {
     ...item,
     title,
+    vote_average: Number.isFinite(Number(item.vote_average))
+      ? Number(item.vote_average)
+      : 0,
     media_type: mediaType,
   };
 }
@@ -90,10 +122,13 @@ async function safeList(
     return fallback();
   }
   try {
+    const { today } = await releaseClock();
     const data = await live();
     return {
       ...data,
-      results: data.results.map((item) => normalizeSummary(item, fallbackType)),
+      results: data.results
+        .map((item) => normalizeSummary(item, fallbackType))
+        .filter((item) => isReleased(item, today)),
     };
   } catch {
     return fallback();
@@ -103,21 +138,36 @@ async function safeList(
 export async function getTrending(
   page = 1,
 ): Promise<PaginatedResponse<MediaSummary>> {
-  return safeList(
+  const { catalogThrough } = await releaseClock();
+  const data = await safeList(
     () =>
       tmdbFetch<PaginatedResponse<MediaSummary>>("/trending/all/week", {
         page,
       }),
     () => mockTrending(),
   );
+  return {
+    ...data,
+    results: data.results.filter(
+      (item) =>
+        (item.release_date || item.first_air_date || "0000-00-00").slice(0, 10) <=
+        catalogThrough,
+    ),
+  };
 }
 
 export async function getPopularMovies(
   page = 1,
 ): Promise<PaginatedResponse<MediaSummary>> {
+  const { catalogThrough } = await releaseClock();
   return safeList(
     () =>
-      tmdbFetch<PaginatedResponse<MediaSummary>>("/movie/popular", { page }),
+      tmdbFetch<PaginatedResponse<MediaSummary>>("/discover/movie", {
+        sort_by: "popularity.desc",
+        "primary_release_date.lte": catalogThrough,
+        "vote_count.gte": 50,
+        page,
+      }),
     () => mockPopularMovies(),
     "movie",
   );
@@ -126,9 +176,15 @@ export async function getPopularMovies(
 export async function getTopRatedMovies(
   page = 1,
 ): Promise<PaginatedResponse<MediaSummary>> {
+  const { catalogThrough } = await releaseClock();
   return safeList(
     () =>
-      tmdbFetch<PaginatedResponse<MediaSummary>>("/movie/top_rated", { page }),
+      tmdbFetch<PaginatedResponse<MediaSummary>>("/discover/movie", {
+        sort_by: "vote_average.desc",
+        "primary_release_date.lte": catalogThrough,
+        "vote_count.gte": 1000,
+        page,
+      }),
     () => mockTopRatedMovies(),
     "movie",
   );
@@ -137,8 +193,15 @@ export async function getTopRatedMovies(
 export async function getPopularTv(
   page = 1,
 ): Promise<PaginatedResponse<MediaSummary>> {
+  const { catalogThrough } = await releaseClock();
   return safeList(
-    () => tmdbFetch<PaginatedResponse<MediaSummary>>("/tv/popular", { page }),
+    () =>
+      tmdbFetch<PaginatedResponse<MediaSummary>>("/discover/tv", {
+        sort_by: "popularity.desc",
+        "first_air_date.lte": catalogThrough,
+        "vote_count.gte": 20,
+        page,
+      }),
     () => mockPopularTv(),
     "tv",
   );
@@ -147,8 +210,15 @@ export async function getPopularTv(
 export async function getTopRatedTv(
   page = 1,
 ): Promise<PaginatedResponse<MediaSummary>> {
+  const { catalogThrough } = await releaseClock();
   return safeList(
-    () => tmdbFetch<PaginatedResponse<MediaSummary>>("/tv/top_rated", { page }),
+    () =>
+      tmdbFetch<PaginatedResponse<MediaSummary>>("/discover/tv", {
+        sort_by: "vote_average.desc",
+        "first_air_date.lte": catalogThrough,
+        "vote_count.gte": 200,
+        page,
+      }),
     () => mockTopRatedTv(),
     "tv",
   );
@@ -170,11 +240,14 @@ export async function getMoviesByGenre(
   genreId: number,
   page = 1,
 ): Promise<PaginatedResponse<MediaSummary>> {
+  const { catalogThrough } = await releaseClock();
   return safeList(
     () =>
       tmdbFetch<PaginatedResponse<MediaSummary>>("/discover/movie", {
         with_genres: genreId,
         sort_by: "popularity.desc",
+        "primary_release_date.lte": catalogThrough,
+        "vote_count.gte": 20,
         page,
       }),
     () => mockDiscoverByGenre(genreId),
@@ -199,11 +272,7 @@ export async function searchMulti(
         ...data,
         results: data.results
           .filter(
-            (item) =>
-              item.media_type === "movie" ||
-              item.media_type === "tv" ||
-              Boolean(item.title) ||
-              Boolean(item.name),
+            (item) => item.media_type === "movie" || item.media_type === "tv",
           )
           .map((item) => normalizeSummary(item)),
       };
@@ -239,6 +308,7 @@ export async function browseMedia(params: {
   }
 
   try {
+    const { catalogThrough } = await releaseClock();
     if (type === "tv") {
       if (genre) {
         return safeList(
@@ -246,6 +316,7 @@ export async function browseMedia(params: {
             tmdbFetch<PaginatedResponse<MediaSummary>>("/discover/tv", {
               with_genres: genre,
               sort_by: "popularity.desc",
+              "first_air_date.lte": catalogThrough,
               page,
             }),
           () => mockBrowse({ type, genre, page }),
@@ -266,6 +337,33 @@ export async function browseMedia(params: {
     return getTrending(page);
   } catch {
     return mockBrowse({ type, genre, query, page });
+  }
+}
+
+export async function getTvSeason(
+  id: number,
+  seasonNumber: number,
+): Promise<SeasonDetails | null> {
+  if (!Number.isFinite(id) || !Number.isFinite(seasonNumber) || seasonNumber < 0) {
+    return null;
+  }
+
+  if (!getAuth().hasCredentials) {
+    return getMockSeason(id, seasonNumber);
+  }
+
+  try {
+    const data = await tmdbFetch<SeasonDetails>(
+      `/tv/${id}/season/${seasonNumber}`,
+    );
+    return {
+      ...data,
+      episodes: [...(data.episodes ?? [])].sort(
+        (a, b) => a.episode_number - b.episode_number,
+      ),
+    };
+  } catch {
+    return getMockSeason(id, seasonNumber);
   }
 }
 

@@ -79,7 +79,7 @@ async function BrowseResults({
                     ...(query ? { q: query } : {}),
                     ...(type !== "all" ? { type } : {}),
                     ...(genre ? { genre: String(genre) } : {}),
-                    page: String(page -01),
+                    page: String(page - 1),
                   }).toString()}`}
                   className="text-sm text-[var(--amber)] hover:text-[#f0b65f]"
                 >

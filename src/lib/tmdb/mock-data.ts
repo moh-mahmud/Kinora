@@ -3,6 +3,8 @@ import type {
   MediaDetails,
   MediaSummary,
   PaginatedResponse,
+  SeasonDetails,
+  SeasonSummary,
 } from "./types";
 
 export const MOCK_GENRES: Genre[] = [
@@ -286,6 +288,18 @@ const tvShows: MediaSummary[] = [
 
 const allMedia = [...movies, ...tvShows];
 
+const DEMO_SEASON_COUNT = 4;
+const DEMO_EPISODE_COUNT = 8;
+
+function mockSeasons(posterPath: string | null): SeasonSummary[] {
+  return Array.from({ length: DEMO_SEASON_COUNT }, (_, index) => ({
+    name: `Season ${index + 1}`,
+    season_number: index + 1,
+    episode_count: DEMO_EPISODE_COUNT,
+    poster_path: posterPath,
+  }));
+}
+
 const castPools = [
   { id: 1, name: "Leonardo DiCaprio", character: "Cobb", profile_path: null, order: 0 },
   { id: 2, name: "Joseph Gordon-Levitt", character: "Arthur", profile_path: null, order: 1 },
@@ -333,8 +347,10 @@ export function getMockTitle(type: "movie" | "tv", id: number): MediaDetails | n
     genres,
     runtime: type === "movie" ? 142 : undefined,
     episode_run_time: type === "tv" ? [55] : undefined,
-    number_of_seasons: type === "tv" ? 4 : undefined,
-    number_of_episodes: type === "tv" ? 40 : undefined,
+    number_of_seasons: type === "tv" ? DEMO_SEASON_COUNT : undefined,
+    number_of_episodes:
+      type === "tv" ? DEMO_SEASON_COUNT * DEMO_EPISODE_COUNT : undefined,
+    seasons: type === "tv" ? mockSeasons(base.poster_path) : undefined,
     status: "Released",
     tagline: type === "movie" ? "Your mind is the scene of the crime." : "One choice changes everything.",
     credits: {
@@ -355,6 +371,32 @@ export function getMockTitle(type: "movie" | "tv", id: number): MediaDetails | n
         },
       ],
     },
+  };
+}
+
+export function getMockSeason(
+  id: number,
+  seasonNumber: number,
+): SeasonDetails | null {
+  const show = tvShows.find((item) => item.id === id);
+  if (!show || seasonNumber < 1 || seasonNumber > DEMO_SEASON_COUNT) {
+    return null;
+  }
+
+  return {
+    name: `Season ${seasonNumber}`,
+    season_number: seasonNumber,
+    overview: show.overview,
+    episodes: Array.from({ length: DEMO_EPISODE_COUNT }, (_, index) => ({
+      id: id * 1000 + seasonNumber * 100 + index + 1,
+      name: `Episode ${index + 1}`,
+      overview: `${show.title} continues in season ${seasonNumber}, episode ${index + 1}.`,
+      episode_number: index + 1,
+      season_number: seasonNumber,
+      still_path: show.backdrop_path,
+      runtime: 55,
+      vote_average: show.vote_average,
+    })),
   };
 }
 

@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Clock, Play, Star } from "lucide-react";
 import { CastList } from "@/components/media/cast-list";
+import { EpisodeGuide } from "@/components/media/episode-guide";
 import { MediaRow } from "@/components/home/media-row";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -10,15 +11,23 @@ import {
   watchHref,
 } from "@/lib/tmdb/client";
 import { backdropUrl, posterUrl } from "@/lib/tmdb/images";
-import type { MediaDetails, MediaType } from "@/lib/tmdb/types";
+import type {
+  MediaDetails,
+  MediaType,
+  SeasonDetails,
+} from "@/lib/tmdb/types";
 import { cn } from "@/lib/utils";
 
 export function TitleDetail({
   item,
   type,
+  season = null,
+  released = true,
 }: {
   item: MediaDetails;
   type: MediaType;
+  season?: SeasonDetails | null;
+  released?: boolean;
 }) {
   const title = displayTitle(item);
   const year = releaseYear(item);
@@ -81,7 +90,7 @@ export function TitleDetail({
             <div className="flex flex-wrap items-center gap-3 text-sm text-[#c9c3b8]">
               <span className="inline-flex items-center gap-1 rounded-md bg-white/5 px-2.5 py-1">
                 <Star className="size-3.5 fill-[var(--amber)] text-[var(--amber)]" />
-                {item.vote_average.toFixed(1)}
+                {(item.vote_average ?? 0).toFixed(1)}
               </span>
               {runtime ? (
                 <span className="inline-flex items-center gap-1 rounded-md bg-white/5 px-2.5 py-1">
@@ -116,21 +125,43 @@ export function TitleDetail({
             </p>
 
             <div className="flex flex-wrap gap-3">
-              <Link
-                href={playHref}
-                className={cn(
-                  buttonVariants({ size: "lg" }),
-                  "h-11 gap-2 bg-[var(--amber)] px-6 text-base font-semibold text-[#1a1208] hover:bg-[#f0b65f]",
-                )}
-              >
-                <Play className="size-4 fill-current" />
-                Watch on Kinora
-              </Link>
+              {released ? (
+                <Link
+                  href={playHref}
+                  className={cn(
+                    buttonVariants({ size: "lg" }),
+                    "h-11 gap-2 bg-[var(--amber)] px-6 text-base font-semibold text-[#1a1208] hover:bg-[#f0b65f]",
+                  )}
+                >
+                  <Play className="size-4 fill-current" />
+                  Watch on Kinora
+                </Link>
+              ) : (
+                <p className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-[#c9c3b8]">
+                  This title is not released yet, so there is no stream.
+                  {year ? ` Listed for ${year}.` : ""}
+                </p>
+              )}
             </div>
           </div>
         </div>
 
         <div className="mt-14 space-y-10">
+          {type === "tv" ? (
+            <EpisodeGuide
+              seasons={item.seasons ?? []}
+              season={season}
+              seasonHref={(seasonNumber) =>
+                `/tv/${item.id}?season=${seasonNumber}`
+              }
+              episodeHref={(episodeNumber) =>
+                watchHref("tv", item.id, {
+                  season: season?.season_number ?? 1,
+                  episode: episodeNumber,
+                })
+              }
+            />
+          ) : null}
           <section className="space-y-4">
             <h2 className="font-display text-2xl font-semibold text-[#f4efe6]">
               Cast
